@@ -1,0 +1,3 @@
+# Nachrichtenquellen für das Dashboard. Eine Zeile pro Quelle: Name | Adresse des RSS-Feeds
+# Zeilen mit # am Anfang zählen nicht.
+Tagesschau | https://www.tagesschau.de/index~rss2.xml

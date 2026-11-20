@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wartezeit</title>
+<style>
+  :root { --bg:#F3F5F8; --card:#FFFFFF; --line:#DDE3EA; --text:#111827; --muted:#5B6675; --soft:#EEF1F5;
+          --accent:#2B6CB0; --accent-soft:#E6EFF9; --go:#15803D; --go-soft:#E3F5EA; --warn:#B45309; --warn-soft:#FCEFD9;
+          --u: clamp(14px, 0.5vw + 10px, 18px); }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171C; --card:#1D2128; --line:#2E3540; --text:#EEF1F5; --muted:#9AA5B4; --soft:#262C35;
+            --accent:#7DB3EA; --accent-soft:#1F2E40; --go:#5FD08A; --go-soft:#1B3325; --warn:#F0B35A; --warn-soft:#3A2C14; }
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { background:var(--bg); color:var(--text); font: var(--u)/1.4 -apple-system, "Segoe UI", "Helvetica Neue", Roboto, sans-serif;
+         -webkit-font-smoothing:antialiased; padding:1.1em 1.1em 2em; }
+  header { display:flex; align-items:center; gap:.7em; margin-bottom:1em; }
+  h1 { font-size:1.4em; font-weight:800; letter-spacing:-.02em; margin:0; flex:1; min-width:0; }
+  .pille { display:inline-flex; align-items:center; gap:.45em; font-size:.82em; font-weight:700; padding:.3em .75em; border-radius:999px;
+           background:var(--soft); color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pille.an { background:var(--go-soft); color:var(--go); }
+  .pille.frage { background:var(--warn-soft); color:var(--warn); }
+  .punkt { width:.55em; height:.55em; border-radius:50%; background:currentColor; flex:none; }
+  .an .punkt, .laeuft .punkt { animation:puls 1.4s ease-in-out infinite; }
+  @keyframes puls { 50% { opacity:.3; transform:scale(.75); } }
+  .banner { display:none; background:var(--warn-soft); color:var(--warn); border-radius:14px; padding:.9em 1.05em; font-weight:700; margin-bottom:1em; }
+  .banner.da { display:block; }
+  .banner.gut { background:var(--go-soft); color:var(--go); }
+  main { display:grid; gap:1.4em 1.1em; grid-template-columns:repeat(auto-fit, minmax(min(100%, 22em), 1fr)); align-items:start; }
+  section { min-width:0; }
+  h2 { font-size:.74em; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 .6em; }
+  a { color:inherit; text-decoration:none; }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .karte { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:.9em 1.05em 1em; margin-bottom:.7em; min-width:0; }
+  .leer { color:var(--muted); background:transparent; border:1px dashed var(--line); border-radius:14px; padding:1.1em 1em; text-align:center; }
+
+  /* Was Claude gerade macht */
+  .kopf { display:flex; align-items:center; gap:.6em; }
+  .titel { flex:1; min-width:0; font-weight:800; font-size:1.05em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .zeit { display:inline-flex; align-items:center; gap:.4em; font-size:.78em; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums;
+          padding:.25em .65em; border-radius:999px; background:var(--go-soft); color:var(--go); }
+  .fertig .zeit { background:var(--soft); color:var(--muted); }
+  .ort { font-size:.8em; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:.1em 0 .5em; }
+  .schritt { font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .aktion { font-size:.84em; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:.2em; }
+  .balken { height:.5em; border-radius:999px; background:var(--soft); overflow:hidden; margin:.6em 0 .35em; }
+  .balken i { display:block; height:100%; border-radius:999px; background:var(--accent); transition:width .6s ease; }
+  .balken.offen i { width:35%; animation:lauf 1.8s ease-in-out infinite; opacity:.7; }
+  @keyframes lauf { from { transform:translateX(-110%); } to { transform:translateX(300%); } }
+  .rest { font-size:.8em; color:var(--muted); }
+  .helfer { list-style:none; margin:.7em 0 0; padding:.6em 0 0; border-top:1px solid var(--line); display:grid; gap:.45em; }
+  .helfer li { display:grid; grid-template-columns:auto 1fr; gap:.1em .55em; align-items:baseline; font-size:.88em; color:var(--muted); }
+  .helfer li.laeuft { color:var(--text); }
+  .helfer li.laeuft .punkt { color:var(--go); }
+  .helfer .punkt { position:relative; top:-.05em; }
+  .helfer b { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .helfer small { grid-column:2; font-size:.9em; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* Aufgaben */
+  .aufgaben { list-style:none; margin:0; padding:0; }
+  .aufgaben li { display:flex; align-items:center; gap:.6em; padding:.45em 0; border-bottom:1px solid var(--line); }
+  .aufgaben li:last-child { border-bottom:0; }
+  .aufgaben input[type=checkbox] { width:1.15em; height:1.15em; accent-color:var(--accent); flex:none; margin:0; }
+  .aufgaben span { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .aufgaben .ok span { color:var(--muted); text-decoration:line-through; }
+  .aufgaben button { border:0; background:none; color:var(--muted); font:inherit; font-size:1.1em; line-height:1; padding:.1em .35em; border-radius:6px; cursor:pointer; }
+  .aufgaben button:hover { background:var(--soft); color:var(--text); }
+  form.neu { display:flex; gap:.5em; margin-top:.7em; }
+  form.neu input { flex:1; min-width:0; font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:.5em .7em; }
+  form.neu button, .knopf { font:inherit; font-weight:700; color:var(--accent); background:var(--accent-soft); border:0; border-radius:10px; padding:.5em .9em; cursor:pointer; }
+
+  /* Nachrichten */
+  .quelle { font-size:.8em; font-weight:700; color:var(--muted); margin:.9em 0 .25em; }
+  .quelle:first-child { margin-top:0; }
+  a.meldung { display:block; padding:.4em 0; border-bottom:1px solid var(--line); }
+  a.meldung:last-child { border-bottom:0; }
+  a.meldung:hover b { color:var(--accent); }
+  a.meldung b { font-weight:600; display:block; text-wrap:pretty; }
+  a.meldung small { color:var(--muted); font-size:.8em; }
+
+  /* Links, Lernkarten, eigene Blöcke */
+  .links { display:flex; flex-wrap:wrap; gap:.5em; }
+  .links a { background:var(--card); border:1px solid var(--line); border-radius:999px; padding:.5em .95em; font-weight:600; }
+  .links a:hover { border-color:var(--accent); color:var(--accent); }
+  .lern { text-align:center; padding:1.3em 1em 1em; cursor:pointer; }
+  .lern .v { font-size:1.25em; font-weight:800; text-wrap:balance; }
+  .lern .h { margin-top:.55em; color:var(--muted); min-height:1.4em; text-wrap:pretty; }
+  .lern .nav { margin-top:.9em; display:flex; justify-content:center; align-items:center; gap:.8em; font-size:.82em; color:var(--muted); }
+  .block p { margin:0 0 .5em; white-space:pre-line; } .block p:last-child { margin:0; }
+  .block ul { margin:0; padding-left:1.1em; } .block li { margin:.2em 0; }
+  footer { margin-top:1.8em; font-size:.78em; color:var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .punkt, .balken.offen i { animation:none !important; } .balken.offen i { width:100%; opacity:.25; } }
+</style>
+</head>
+<body>
+<header><h1 id="gruss">Wartezeit</h1><span class="pille" id="pille"><span class="punkt"></span><span id="pilleText">Bereit</span></span></header>
+<div class="banner" id="banner" role="status"></div>
+<main id="main"></main>
+<footer id="fuss"></footer>
+
+<script src="config.js"></script>
+<script>
+"use strict";
+const CFG = window.WARTEZEIT || {};
+const el = (tag, cls, text) => { const d = document.createElement(tag); if (cls) d.className = cls; if (text != null) d.textContent = text; return d; };
+const zwei = n => String(n).padStart(2, "0");
+const dauer = s => { s = Math.max(0, Math.floor(s)); const m = Math.floor(s / 60);
+  return m >= 60 ? Math.floor(m / 60) + " Std " + (m % 60) + " Min" : m + ":" + zwei(s % 60); };
+const kurz = (s, n) => { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+
+/* ---------- Daten, die der Hook schreibt ---------- */
+// Der Hook legt jedes Ereignis als Base64 ab. Hier wird es zurückverwandelt.
+function dekod(b) {
+  let s = "";
+  try { s = new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0))); } catch (e) { return {}; }
+  try { return JSON.parse(s); } catch (e) { return notfall(s); }
+}
+// Lange Ereignisse schneidet der Hook ab. Dann die wichtigen Felder einzeln herausholen.
+function notfall(s) {
+  const f = k => { const m = s.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)')); if (!m) return undefined;
+    try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1].replace(/\\n/g, " ").replace(/\\(.)/g, "$1"); } };
+  return { tool_name: f("tool_name"), cwd: f("cwd"), prompt: f("prompt"), agent_id: f("agent_id"), agent_type: f("agent_type"),
+    tool_input: { description: f("description"), file_path: f("file_path"), command: f("command"), pattern: f("pattern"), query: f("query"), subagent_type: f("subagent_type") } };
+}
+const WZ = window.WZ = {
+  st: null, neu: {}, roh: {}, quellen: null,
+  stand(o) { this.st = o; },
+  e(sid, t, art, b64) { (this.neu[sid] = this.neu[sid] || []).push({ t, art, d: dekod(b64) }); },
+  feeds(a) { this.quellen = a; }
+};
+function lade(src) {
+  return new Promise(r => { const s = document.createElement("script"); s.src = src + "?" + Date.now();
+    s.onload = s.onerror = () => { s.remove(); r(); }; document.head.append(s); });
+}
+
+/* ---------- Aus den Ereignissen einer Sitzung den Stand bauen ---------- */
+const datei = p => String(p || "").split(/[\\/]/).pop();
+function aktionText(n, i) {
+  i = i || {}; n = n || "";
+  if (n === "Bash") return i.description || kurz(i.command, 80);
+  if (n === "Read") return "Liest " + datei(i.file_path);
+  if (n === "Edit" || n === "NotebookEdit") return "Bearbeitet " + datei(i.file_path || i.notebook_path);
+  if (n === "Write") return "Schreibt " + datei(i.file_path);
+  if (n === "Grep" || n === "Glob") return "Sucht nach " + (i.pattern || "");
+  if (n === "Agent" || n === "Task") return "Startet Helfer: " + (i.description || "");
+  if (n === "WebSearch") return "Sucht im Web: " + (i.query || "");
+  if (n === "WebFetch") return "Liest eine Webseite";
+  if (n.indexOf("mcp__") === 0) return "Nutzt " + n.split("__").pop().replace(/_/g, " ");
+  return n ? "Nutzt " + n : "";
+}
+function schritte(x) {
+  if (typeof x === "string") { try { x = JSON.parse(x); } catch (e) { x = []; } }
+  return Array.isArray(x) ? x.map(p => ({ t: kurz(p.content || p.subject || "", 120), s: p.status || "pending" })) : [];
+}
+function sitzung(sid, ev) {
+  const x = { sid, auftrag: "", projekt: "", seit: null, zuletzt: null, aktion: "", plan: [], helfer: [], fertig: false, frage: false };
+  const helferNach = {};
+  for (const { t, art, d } of ev) {
+    x.zuletzt = t;
+    const ordner = datei(d.cwd);
+    if (ordner && !x.projekt) x.projekt = /^scratch-/.test(ordner) ? "Ohne Ordner" : ordner;
+    if (art === "auftrag") {
+      x.seit = t; x.fertig = false; x.frage = false; x.plan = []; x.helfer = []; x.aktion = "";
+      x.auftrag = kurz(String(d.prompt || "").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").replace(/<[^>]{1,40}>/g, ""), 140);
+    } else if (art === "schritt") {
+      x.frage = false;
+      const n = d.tool_name || "", i = d.tool_input || {};
+      if (d.agent_id) {          // Aufruf aus einem Helfer heraus: dort einsortieren
+        const h = helferNach[d.agent_id] || x.helfer.find(h => !h.fertig && !h.id);
+        if (h) { h.id = d.agent_id; helferNach[d.agent_id] = h; h.aktion = kurz(aktionText(n, i), 110); }
+        continue;
+      }
+      if (/update_plan$/.test(n)) {
+        if (i.items != null) x.plan = schritte(i.items);
+        else {
+          const setze = (k, s) => { if (k != null && k >= 0 && k < x.plan.length) x.plan[k].s = s; };
+          if (i.advance === true) { setze(x.plan.findIndex(p => p.s === "in_progress"), "completed"); setze(x.plan.findIndex(p => p.s === "pending"), "in_progress"); }
+          if (Array.isArray(i.done)) i.done.forEach(k => setze(k - 1, "completed"));
+          if (typeof i.start === "number") setze(i.start - 1, "in_progress");
+        }
+      } else if (n === "TodoWrite") x.plan = schritte(i.todos);
+      else if (/wrap_up$/.test(n)) x.plan.forEach(p => p.s = "completed");
+      else {
+        x.aktion = kurz(aktionText(n, i), 120);
+        if (n === "Agent" || n === "Task") x.helfer.push({ name: kurz(i.description || i.subagent_type || "Helfer", 70), start: t, fertig: false, aktion: "" });
+      }
+    } else if (art === "helfer-start") {
+      const h = x.helfer.find(h => !h.fertig && !h.id);
+      if (h && d.agent_id) { h.id = d.agent_id; helferNach[d.agent_id] = h; }
+    } else if (art === "helfer-fertig") {
+      const h = (d.agent_id && helferNach[d.agent_id]) || x.helfer.find(h => !h.fertig);
+      if (h) { h.fertig = true; h.ende = t; h.aktion = ""; }
+    } else if (art === "frage") x.frage = true;
+    else if (art === "fertig") { x.fertig = true; x.frage = false; x.aktion = ""; x.helfer.forEach(h => h.fertig = true); }
+  }
+  return x;
+}
+
+/* ---------- Bereiche ---------- */
+const BEREICHE = {};
+let ticker = [];
+
+BEREICHE.agenten = function (box) {
+  box.append(el("h2", "", "Was Claude gerade macht"));
+  const liste = el("div"); box.append(liste);
+  let stand = "";
+  return function () {
+    const st = WZ.st || {}, ids = [].concat(st.sitzungen || [], st.fertige || []);
+    const alle = ids.filter((s, k) => ids.indexOf(s) === k).map(s => sitzung(s, WZ.roh[s] || [])).filter(x => x.seit);
+    const sig = JSON.stringify(alle);
+    if (sig === stand) return; stand = sig;
+    ticker = []; liste.replaceChildren();
+    if (!alle.length) { liste.append(el("div", "leer", "Gerade arbeitet nichts. Sobald du Claude eine Aufgabe gibst, erscheint sie hier.")); return; }
+    alle.sort((a, b) => (a.fertig - b.fertig) || (a.seit - b.seit));
+    for (const x of alle) {
+      const c = el("div", "karte" + (x.fertig ? " fertig" : " laeuft")), kopf = el("div", "kopf"), zeit = el("span", "zeit"), zt = document.createTextNode("");
+      if (!x.fertig) zeit.append(el("span", "punkt")); zeit.append(zt);
+      kopf.append(el("div", "titel", x.auftrag || "Aufgabe"), zeit);
+      c.append(kopf, el("div", "ort", x.projekt || ""));
+      const lauf = x.plan.find(p => p.s === "in_progress"), erledigt = x.plan.filter(p => p.s === "completed").length;
+      if (x.fertig) c.append(el("div", "schritt", "Fertig"));
+      else {
+        c.append(el("div", "schritt", x.frage ? "Wartet auf deine Antwort" : lauf ? lauf.t : (x.aktion || "Denkt nach …")));
+        if (lauf && x.aktion && !x.frage) c.append(el("div", "aktion", x.aktion));
+        const balken = el("div", "balken"), fuell = el("i"); balken.append(fuell);
+        if (x.plan.length) { fuell.style.width = Math.max(4, Math.round((erledigt + (lauf ? .5 : 0)) / x.plan.length * 100)) + "%";
+          c.append(balken, el("div", "rest", "Schritt " + Math.min(x.plan.length, erledigt + 1) + " von " + x.plan.length)); }
+        else { balken.classList.add("offen"); c.append(balken); }
+      }
+      if (x.helfer.length) {
+        const ul = el("ul", "helfer");
+        for (const h of x.helfer) { const li = el("li", h.fertig ? "" : "laeuft"); li.append(el("span", "punkt"), el("b", "", h.name));
+          li.append(el("small", "", h.fertig ? "fertig" : (h.aktion || "arbeitet"))); ul.append(li); }
+        c.append(ul);
+      }
+      ticker.push(now => { zt.textContent = x.fertig ? "fertig nach " + dauer((x.zuletzt || x.seit) - x.seit) : dauer(now - x.seit); });
+      liste.append(c);
+    }
+    tick();
+  };
+};
+
+BEREICHE.aufgaben = function (box) {
+  const KEY = "wartezeit.aufgaben";
+  let liste;
+  try { liste = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (!Array.isArray(liste)) liste = (CFG.aufgaben || []).map(t => ({ t: String(t), ok: false }));
+  const sichern = () => { try { localStorage.setItem(KEY, JSON.stringify(liste)); } catch (e) {} };
+  box.append(el("h2", "", CFG.aufgabenTitel || "Meine Aufgaben"));
+  const karte = el("div", "karte"), ul = el("ul", "aufgaben"), form = el("form", "neu"), feld = el("input"), plus = el("button", "", "Dazu");
+  feld.type = "text"; feld.placeholder = "Neue Aufgabe"; feld.setAttribute("aria-label", "Neue Aufgabe"); plus.type = "submit";
+  form.append(feld, plus); karte.append(ul, form); box.append(karte);
+  function mal() {
+    ul.replaceChildren();
+    if (!liste.length) ul.append(el("li", "", "Noch nichts auf der Liste."));
+    liste.forEach((a, k) => {
+      const li = el("li", a.ok ? "ok" : ""), cb = el("input"), weg = el("button", "", "×");
+      cb.type = "checkbox"; cb.checked = !!a.ok; cb.id = "a" + k;
+      cb.onchange = () => { a.ok = cb.checked; sichern(); mal(); };
+      const text = el("label"); text.htmlFor = cb.id; text.append(el("span", "", a.t)); text.style.flex = "1"; text.style.minWidth = "0";
+      weg.type = "button"; weg.title = "Entfernen"; weg.setAttribute("aria-label", "Entfernen: " + a.t);
+      weg.onclick = () => { liste.splice(k, 1); sichern(); mal(); };
+      li.append(cb, text, weg); ul.append(li);
+    });
+  }
+  form.onsubmit = e => { e.preventDefault(); const t = feld.value.trim(); if (!t) return; liste.push({ t, ok: false }); feld.value = ""; sichern(); mal(); };
+  mal();
+  return null;
+};
+
+BEREICHE.nachrichten = function (box) {
+  box.append(el("h2", "", "Nachrichten"));
+  const karte = el("div", "karte"); box.append(karte);
+  let stand = null;
+  const txt = (n, name) => { const c = n.getElementsByTagName(name)[0]; return c ? c.textContent.trim() : ""; };
+  function meldungen(xml) {
+    let doc = new DOMParser().parseFromString(xml, "text/xml");
+    if (doc.getElementsByTagName("parsererror").length) {   // abgeschnittener Feed: am letzten vollständigen Eintrag enden lassen
+      const i = xml.lastIndexOf("</item>"), e = xml.lastIndexOf("</entry>");
+      if (i > 0) doc = new DOMParser().parseFromString(xml.slice(0, i + 7) + "</channel></rss>", "text/xml");
+      else if (e > 0) doc = new DOMParser().parseFromString(xml.slice(0, e + 8) + "</feed>", "text/xml");
+    }
+    const aus = [];
+    const posten = doc.getElementsByTagName("item").length ? doc.getElementsByTagName("item") : doc.getElementsByTagName("entry");
+    for (const p of posten) {
+      let link = txt(p, "link");
+      if (!link) { const l = [...p.getElementsByTagName("link")].find(l => (l.getAttribute("rel") || "alternate") === "alternate") || p.getElementsByTagName("link")[0]; link = l ? l.getAttribute("href") || "" : ""; }
+      const wann = Date.parse(txt(p, "pubDate") || txt(p, "published") || txt(p, "updated") || txt(p, "dc:date"));
+      const titel = txt(p, "title").replace(/<[^>]+>/g, "");
+      if (titel) aus.push({ titel, link: /^https?:\/\//.test(link) ? link : "", wann: isNaN(wann) ? null : wann });
+    }
+    return aus;
+  }
+  const vor = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "gerade eben" : m < 60 ? "vor " + m + " Min" : m < 1440 ? "vor " + Math.round(m / 60) + " Std" : "vor " + Math.round(m / 1440) + " Tagen"; };
+  return function () {
+    if (WZ.quellen === stand) return; stand = WZ.quellen;
+    karte.replaceChildren();
+    const anzahl = CFG.nachrichtenAnzahl || 4; let etwas = false;
+    for (const q of stand || []) {
+      let name = "", liste = [];
+      try { name = new TextDecoder().decode(Uint8Array.from(atob(q.n), c => c.charCodeAt(0))); liste = meldungen(new TextDecoder().decode(Uint8Array.from(atob(q.d), c => c.charCodeAt(0)))); } catch (e) {}
+      if (!liste.length) continue; etwas = true;
+      karte.append(el("div", "quelle", name));
+      for (const m of liste.slice(0, anzahl)) {
+        const a = el(m.link ? "a" : "div", "meldung"); if (m.link) { a.href = m.link; a.target = "_blank"; a.rel = "noopener noreferrer"; }
+        a.append(el("b", "", m.titel)); if (m.wann) a.append(el("small", "", vor(m.wann))); karte.append(a);
+      }
+    }
+    if (!etwas) karte.append(el("div", "", "Noch keine Nachrichten geladen. Sie kommen, sobald Claude das nächste Mal arbeitet."));
+  };
+};
+
+BEREICHE.links = function (box) {
+  const L = (CFG.links || []).filter(l => l && /^https?:\/\//.test(l.url || ""));
+  if (!L.length) return null;
+  box.append(el("h2", "", "Schnell hin"));
+  const d = el("div", "links");
+  for (const l of L) { const a = el("a", "", l.name || l.url); a.href = l.url; a.target = "_blank"; a.rel = "noopener noreferrer"; d.append(a); }
+  box.append(d); return null;
+};
+
+BEREICHE.karten = function (box) {
+  const K = CFG.karten || {}, E = (K.eintraege || []).filter(e => e && e.vorn);
+  if (!E.length) return null;
+  box.append(el("h2", "", K.titel || "Lernkarten"));
+  const c = el("div", "karte lern"), v = el("div", "v"), h = el("div", "h"), nav = el("div", "nav"), zahl = el("span"), weiter = el("button", "knopf", "Nächste");
+  weiter.type = "button"; nav.append(zahl, weiter); c.append(v, h, nav); box.append(c);
+  let k = Math.floor(Math.random() * E.length), offen = false;
+  const mal = () => { v.textContent = E[k].vorn; h.textContent = offen ? (E[k].hinten || "") : (E[k].hinten ? "Antippen zum Aufdecken" : ""); zahl.textContent = (k + 1) + " von " + E.length; };
+  c.onclick = () => { offen = !offen; mal(); };
+  weiter.onclick = e => { e.stopPropagation(); k = (k + 1) % E.length; offen = false; mal(); };
+  mal(); return null;
+};
+
+BEREICHE.bloecke = function (box) {
+  const B = (CFG.bloecke || []).filter(b => b && (b.text || (b.liste || []).length));
+  if (!B.length) return null;
+  for (const b of B) {
+    box.append(el("h2", "", b.titel || "Notiz"));
+    const c = el("div", "karte block");
+    if (b.text) c.append(el("p", "", b.text));
+    if ((b.liste || []).length) { const ul = el("ul"); b.liste.forEach(t => ul.append(el("li", "", t))); c.append(ul); }
+    box.append(c); box.append(document.createTextNode(""));
+  }
+  return null;
+};
+
+/* ---------- Aufbau und Takt ---------- */
+const main = document.getElementById("main"), updates = [];
+for (const name of (CFG.bereiche || ["agenten", "aufgaben", "nachrichten"])) {
+  if (!BEREICHE[name]) continue;
+  const box = el("section"), u = BEREICHE[name](box);
+  if (box.childNodes.length) main.append(box);
+  if (u) updates.push(u);
+}
+document.getElementById("gruss").textContent = CFG.name ? "Hallo " + CFG.name : "Wartezeit";
+const fuss = document.getElementById("fuss");
+
+function tick() { const now = Date.now() / 1000; ticker.forEach(f => f(now)); }
+setInterval(tick, 1000);
+
+let sahArbeit = false, zu = false;
+async function runde() {
+  await lade("daten/stand.js");
+  const st = WZ.st || {}, ids = [].concat(st.sitzungen || [], st.fertige || []);
+  WZ.neu = {};
+  await Promise.all(ids.filter((s, k) => ids.indexOf(s) === k).map(s => lade("daten/log_" + s + ".js")).concat([lade("daten/nachrichten.js")]));
+  WZ.roh = WZ.neu;
+  updates.forEach(u => u());
+
+  const pille = document.getElementById("pille"), pt = document.getElementById("pilleText"), banner = document.getElementById("banner");
+  const n = (st.sitzungen || []).length;
+  pille.className = "pille" + (st.zustand === "arbeitet" ? " an" : st.zustand === "wartet" ? " frage" : "");
+  pt.textContent = st.zustand === "arbeitet" ? (n > 1 ? n + " Aufgaben laufen" : "Claude arbeitet") : st.zustand === "wartet" ? "Claude braucht dich" : st.zustand === "fertig" ? "Fertig" : "Bereit";
+  banner.className = "banner" + (st.zustand === "wartet" ? " da" : st.zustand === "fertig" && sahArbeit ? " da gut" : "");
+  banner.textContent = st.zustand === "wartet" ? "Claude wartet auf eine Antwort von dir. Schau kurz in Claude nach." : st.zustand === "fertig" ? "Claude ist fertig." : "";
+  if (st.zustand === "arbeitet" || st.zustand === "wartet") sahArbeit = true;
+  // Selbst schließen, aber nur, wenn dieses Fenster die Arbeit auch miterlebt hat
+  if (st.zustand === "fertig" && sahArbeit && !zu && st.zu !== false) { zu = true; setTimeout(() => { try { window.close(); } catch (e) {} }, 1500); }
+  if (st.zustand === "arbeitet") zu = false;
+  fuss.textContent = st.zu === false ? "" : "Dieses Fenster schließt sich von selbst, sobald Claude fertig ist.";
+}
+(async function schleife() { try { await runde(); } catch (e) {} setTimeout(schleife, 1500); })();
+</script>
+</body>
+</html>

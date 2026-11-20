@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" auftrag" } ] }
+    ],
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" schritt", "async": true } ] }
+    ],
+    "SubagentStart": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" helfer-start", "async": true } ] }
+    ],
+    "SubagentStop": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" helfer-fertig", "async": true } ] }
+    ],
+    "Notification": [
+      { "matcher": "permission_prompt|elicitation_dialog|agent_needs_input", "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" frage" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" fertig" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/wartezeit/hook.sh\" ende" } ] }
+    ]
+  }
+}
